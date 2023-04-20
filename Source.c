@@ -1,141 +1,196 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
 #include<malloc.h>
+#include<string.h>
+#include<stdlib.h>
 
-typedef struct
-{
-	char* numeCandidat;
-	char* programStudiu;
-	float mediaBac;
-	int codDosar;
-}dosarCandidat;
+typedef struct ContBancar{
+	char* titular;
+	int suma;
+}ContBancar;
 
-typedef struct
-{
-	dosarCandidat inf;
-	struct nodLS* next;
-} nodLS;
-
-typedef struct
-{
-	struct nodLS** vect;
-	int nrElem;
-} hashT;
-
-
-int functieDispersieNume(const char numeCandidat[20], hashT tabela)
-{
-	return numeCandidat[0] % tabela.nrElem;
+ContBancar creareCont(const char* titular, int suma){
+	ContBancar cont;
+	cont.titular = (char*)malloc(sizeof(char) * (strlen(titular) + 1));
+	strcpy(cont.titular, titular);
+	cont.suma = suma;
+	return cont;
 }
 
+ContBancar afisareCont(ContBancar c){
+	printf("\n Titularul %s are in cont suma %d", c.titular, c.suma);
+}
 
-void inserareHashTable(hashT tabela, dosarCandidat s)
-{
-	if (tabela.vect != NULL)
-	{
-		//int pozitie = functieDispersie(tabela, s.nrGrupa);
-		int pozitie = functieDispersieNume(s.numeCandidat, tabela);
-		nodLS* nou = (nodLS*)malloc(sizeof(nodLS));
-		nou->inf.numeCandidat = (char*)malloc((strlen(s.numeCandidat) + 1) * sizeof(char));
-		strcpy(nou->inf.numeCandidat, s.numeCandidat);
-		nou->inf.programStudiu = (char*)malloc((strlen(s.programStudiu) + 1) * sizeof(char));
-		strcpy(nou->inf.programStudiu, s.programStudiu);
-		nou->inf.mediaBac = s.mediaBac;
-		nou->inf.codDosar = s.codDosar;
-		nou->next = NULL;
-		if (tabela.vect[pozitie] == NULL)
-			tabela.vect[pozitie] = nou;
-		else
-		{
-			nodLS* temp = tabela.vect[pozitie];
-			while (temp->next)
-				temp = temp->next;
-			temp->next = nou;
+typedef struct Nod {
+	ContBancar info;
+	struct Nod* next;
+}Nod;
+
+Nod* creareNod(Nod* next, ContBancar info) {
+	Nod* nod = (Nod*)malloc(sizeof(Nod));
+	nod->info = creareCont(info.titular, info.suma);
+	nod->next = next;
+	return nod;
+}
+
+Nod* inserareInceput(Nod* cap, ContBancar info) {
+	Nod* nou = creareNod(NULL, info);
+	if (cap) {
+		nou->next = cap;
+		cap = nou;
+	}
+	else {
+		cap = nou;
+	}
+	return cap;
+}
+
+void afisareLista(Nod* cap) {
+	if (cap) {
+		Nod* p = cap;
+		while (p) {
+			afisareCont(p->info);
+		    p = p->next;
+		}
+
+	}
+	
+}
+
+void dezalocareLista(Nod** cap) {
+	if (*cap) {
+		while (*cap) {
+			Nod* aux = *cap;
+			*cap = (*cap)->next;
+			free(aux->info.titular);
+			free(aux);
+		}
+	}
+	
+}
+
+void cautareDupaSuma(Nod* cap, int sum,ContBancar * c) {
+	if (cap) {
+		Nod* p = cap;
+		while (p && p->info.suma != sum) {
+			p = p->next;
+		}
+		if (p) {
+			*c= p->info;
+		}
+		else {
+			//lista exista dar nu am gasit suma 
+			//cont fictiv
+			*c=creareCont("", -1);
+		}
+	}
+	else {
+		//cont fictiv
+		*c= creareCont("", -1);
+	}
+}
+typedef struct HashTable {
+	int dim;
+	Nod** vector;
+}HashTable;
+
+HashTable initHashTable(int dim) {
+	HashTable h;
+	h.dim = dim;
+	h.vector = (Nod**)malloc(sizeof(Nod*) * dim);
+	for (int i = 0; i < h.dim; i++) {
+		h.vector[i] = NULL;
+	}
+	return h;
+}
+
+int HCode(int sum, HashTable h) {
+	return sum % h.dim;/// returneaza restul impartirrii sumei la h.dim  0 1 2 3 4 
+}
+
+int hcode2(const char* titular, HashTable h) {
+	return titular[0] % h.dim;
+}
+
+int hcode3(const char* titular, HashTable h) {
+	int sum = 0;
+	for (int i = 0; i < strlen(titular); i++) {
+		sum += titular[i];
+	}
+	return sum % h.dim;
+}
+HashTable inserareHashTable(HashTable h, ContBancar cont) {
+	if (h.vector) {
+		int poz = hcode2(cont.titular, h);
+		h.vector[poz] = inserareInceput(h.vector[poz], cont);
+	}
+	return h;
+}
+
+void afisareHashTable(HashTable h) {
+	if (h.vector) {		
+		for (int i = 0; i < h.dim; i++) {
+			printf("\n pe pozitia %d: \n", i);
+			afisareLista(h.vector[i]);
 		}
 	}
 }
 
-void traversareLS(nodLS* capLS)
-{
-	nodLS* temp = capLS;
-	while (temp)
-	{
-		printf("\n Candidatul : %s  \n Programul de studiu : %s \n Media bac : %5.2f \n Cod dosar : %d",
-			temp->inf.numeCandidat,temp->inf.programStudiu,temp->inf.mediaBac,temp->inf.codDosar);
-		temp = temp->next;
+HashTable dezalocareHashTable(HashTable h) {
+	if (h.vector) {
+		for (int i = 0; i < h.dim; i++) {
+			 dezalocareLista(&h.vector[i]);
+		}
+		h.dim = 0;
+		free(h.vector);
+		h.vector = NULL;
 	}
+	return h;
 }
 
-void traversareHashTable(hashT tabela)
-{
-	if (tabela.vect != NULL)
-	{
-		for (int i = 0; i < tabela.nrElem; i++)
-		{
-			if (tabela.vect[i] != NULL)
-			{
-				printf("\nPozitie=%d", i);
-				traversareLS(tabela.vect[i]);
+ContBancar cautareinHashtableDupaSuma(HashTable h, int sum) {
+	if (h.vector) {
+		int poz = HCode(sum, h);
+		ContBancar c;
+		cautareDupaSuma(h.vector[poz], sum, &c);
+	}
+	else {
+		return creareCont("", -1);
+	}
+}
+ContBancar cautareinHashtabDupaTitular(HashTable h, const char* titular) {
+	if (h.vector) {
+		int contor = 0;
+		for (int i = 0; i < h.dim; i++) {
+			Nod* p = h.vector[i];
+			while (p) {
+				if (strcmp(titular, p->info.titular) == 0) {
+					contor = 1;
+					return p->info;
+				}
+				p = p->next;
 			}
 		}
+		if (contor == 0) {
+			return creareCont("", -1);
+		}
+	}
+	else {
+		return creareCont("", -1);
 	}
 }
+void main() {
+	HashTable h = initHashTable(5);
+	ContBancar cont = creareCont("Mircea", 31);
+	inserareHashTable(h, cont);
+	afisareHashTable(h);
+	printf("\n afisare hash table\n");
 
-void dezalocareLS(nodLS* capLS)
-{
-	nodLS* temp = capLS;
-	while (temp)
-	{
-		nodLS* temp2 = temp->next;
-		free(temp->inf.numeCandidat);
-		free(temp->inf.programStudiu);
-		free(temp);
-		temp = temp2;
-	}
-}
-
-void dezalocareHashTable(hashT tabela)
-{
-	if (tabela.vect != NULL)
-	{
-		for (int i = 0; i < tabela.nrElem; i++)
-			if (tabela.vect[i] != NULL)
-				dezalocareLS(tabela.vect[i]);
-	}
-	free(tabela.vect);
-}
-
-void main()
-{
-	int nrStud;
-	hashT tabela;
-	tabela.nrElem = 11;
-	tabela.vect = (nodLS**)malloc(tabela.nrElem * sizeof(nodLS*));
-	for (int i = 0; i < tabela.nrElem; i++)
-		tabela.vect[i] = NULL;
-
-	char buffer[20];
-	char buffer1[20];
-	dosarCandidat s;
-	FILE* f = fopen("dosare.txt", "r");
-	fscanf(f, "%d", &nrStud);
-	for (int i = 0; i < nrStud; i++)
-	{
-		fscanf(f, "%s", buffer);
-		s.numeCandidat = (char*)malloc((strlen(buffer) + 1) * sizeof(char));
-		strcpy(s.numeCandidat, buffer);	
-		fscanf(f, "%s", buffer1);
-		s.programStudiu = (char*)malloc((strlen(buffer1) + 1) * sizeof(char));
-		strcpy(s.programStudiu, buffer1);
-		fscanf(f, "%f", &s.mediaBac);
-		fscanf(f, "%d", &s.codDosar);
-		inserareHashTable(tabela, s);
-		free(s.numeCandidat);
-		free(s.programStudiu);
-	}
-	fclose(f);
-	traversareHashTable(tabela);
-	dezalocareHashTable(tabela);
+	h = inserareHashTable(h, creareCont("Andrei Matei", 20));
+	h = inserareHashTable(h, creareCont("Ana", 21));
+	h = inserareHashTable(h, creareCont("Alex", 35));
+	h = inserareHashTable(h, creareCont("Maxim", 24));
+	h = inserareHashTable(h, creareCont("Marius", 51));
+	h = inserareHashTable(h, creareCont("Ilie", 60));
+	afisareHashTable(h);
 }
